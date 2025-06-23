@@ -1,0 +1,15 @@
+services:
+  - type: web
+    name: a2a-fraud-detection-api
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn main:app --host 0.0.0.0 --port $PORT --workers 4
+    plan: starter
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHONPATH
+        value: .
+      - key: PORT
+        value: 10000
+      - key: ENVIRONMENT
+        value: production
