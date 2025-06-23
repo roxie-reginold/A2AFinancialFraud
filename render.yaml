@@ -16,7 +16,7 @@ services:
       - key: GOOGLE_CLOUD_PROJECT
         value: fraud-detection-adkhackathon
       - key: GOOGLE_API_KEY
-        value: AIzaSyBiWUq9H_5A7sHBJZDxU_qNlPjNiZkMw30
+        fromSecret: GOOGLE_API_KEY
       - key: GEMINI_MODEL
         value: gemini-2.5-pro-preview-05-06
       - key: BYPASS_CLOUD_VALIDATION
