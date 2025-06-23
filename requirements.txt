@@ -17,7 +17,7 @@ vertexai
 litellm
 
 # Machine Learning and Data Science Libraries
-# tensorflow>=2.13.0  # Not compatible with Python 3.13 yet
+# tensorflow>=2.13.0  # Not compatible with Python 3.13 yet - optional
 # keras
 numpy>=1.21.0
 pandas>=1.5.0
