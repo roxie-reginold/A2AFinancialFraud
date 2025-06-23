@@ -3,7 +3,7 @@ services:
     name: a2a-fraud-detection-api
     env: python
     buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn main:app --host 0.0.0.0 --port $PORT --workers 4
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
     plan: starter
     healthCheckPath: /health
     envVars:
@@ -13,3 +13,11 @@ services:
         value: 10000
       - key: ENVIRONMENT
         value: production
+      - key: GOOGLE_CLOUD_PROJECT
+        value: fraud-detection-adkhackathon
+      - key: GOOGLE_API_KEY
+        value: AIzaSyBiWUq9H_5A7sHBJZDxU_qNlPjNiZkMw30
+      - key: GEMINI_MODEL
+        value: gemini-2.5-pro-preview-05-06
+      - key: BYPASS_CLOUD_VALIDATION
+        value: true
