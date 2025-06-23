@@ -1,0 +1,50 @@
+# ADK Financial Fraud Detection System - Backend Only
+# Python FastAPI + Fraud Detection Agents
+
+FROM python:3.11-slim
+
+# Set environment variables for Cloud Run
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONPATH=/app
+ENV PORT=8080
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    curl \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create app directory
+WORKDIR /app
+
+# Copy requirements first for better caching
+COPY requirements.txt .
+
+# Install Python dependencies
+RUN pip install --upgrade pip && \
+    pip install -r requirements.txt
+
+# Copy backend application code (exclude frontend)
+COPY agents/ ./agents/
+COPY api/ ./api/
+COPY config/ ./config/
+COPY data/ ./data/
+COPY models/ ./models/
+COPY scripts/ ./scripts/
+COPY main.py .
+COPY run_dev.py .
+COPY spec.md .
+
+# Create necessary directories
+RUN mkdir -p /app/logs /app/data/temp
+
+# Cloud Run expects the service to listen on $PORT
+EXPOSE $PORT
+
+# Health check endpoint
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD curl -f http://localhost:$PORT/health || exit 1
+
+# Use API service directly for backend
+CMD ["python", "-c", "import asyncio; from api.fraud_api import FraudDetectionAPI; import uvicorn; import os; api = FraudDetectionAPI(); uvicorn.run(api.app, host='0.0.0.0', port=int(os.getenv('PORT', 8080)))"]

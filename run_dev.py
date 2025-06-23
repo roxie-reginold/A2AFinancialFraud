@@ -1,86 +1,111 @@
 #!/usr/bin/env python3
 """
-Development runner for ADK Financial Fraud Detection System
-Simplified startup for development and testing.
+Unified Development and Production Runner for ADK Financial Fraud Detection System v2
 """
 
-import os
 import asyncio
+import os
 import logging
-from datetime import datetime
+import signal
+from pathlib import Path
 
-# Set development environment
-os.environ["ENVIRONMENT"] = "development"
-os.environ["GOOGLE_CLOUD_PROJECT"] = "fraud-detection-dev"
-
-# Import our services
-from api.health import HealthCheckService
-from api.fraud_api import FraudDetectionAPI
-
-# Configure logging
+# Set up logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
 
-async def run_development_server():
-    """Run the fraud detection system in development mode."""
-    logger.info("🚀 Starting A2A Fraud Detection - Development Mode")
+async def main():
+    """Main entry point that determines run mode based on environment."""
     
-    # Get port from environment (Cloud Run sets PORT)
-    port = int(os.getenv("PORT", "8080"))
+    # Determine if we're in development or production
+    environment = os.getenv('ENVIRONMENT', 'development')
+    port = int(os.getenv('PORT', '8080'))
     
-    try:
-        # Initialize FastAPI services
-        health_service = HealthCheckService()
-        fraud_api = FraudDetectionAPI()
-        
-        # Check if running on Cloud Run
-        if os.getenv("PORT"):
-            # Cloud Run deployment - single port with full API
-            logger.info(f"🌟 Cloud Run deployment detected - running on port {port}")
-            
-            # Start fraud API service (includes health endpoints)
-            api_server = await fraud_api.start_server(port=port, host="0.0.0.0")
-            logger.info(f"✅ Full API service started on http://0.0.0.0:{port}")
-            logger.info(f"📋 API Documentation: http://0.0.0.0:{port}/docs")
-            
-            await api_server.serve()
-        else:
-            # Local development - multiple ports
-            logger.info("Environment: Development (no Google Cloud required)")
-            
-            # Start servers
-            health_server = await health_service.start_server(port=8080)
-            api_server = await fraud_api.start_server(port=8000)
-            
-            # Run servers concurrently
-            await asyncio.gather(
-                health_server.serve(),
-                api_server.serve()
-            )
-        
-    except KeyboardInterrupt:
-        logger.info("👋 Shutting down development server...")
-    except Exception as e:
-        logger.error(f"❌ Error: {e}")
+    logger.info(f"🚀 Starting ADK Financial Fraud Detection System v2 in {environment} mode")
+    logger.info(f"🌐 Server will run on port {port}")
+    
+    if environment == 'production' or os.getenv('PORT'):
+        # Production mode: Run unified API server with frontend
+        await run_production_server(port)
+    else:
+        # Development mode: Run development servers
+        await run_development_servers()
 
-def main():
-    """Main entry point for development server."""
-    print("=" * 60)
-    print("🔍 ADK Financial Fraud Detection System - Development")
-    print("=" * 60)
-    print("📱 Health API:     http://localhost:8080/docs")
-    print("🔗 Fraud API:      http://localhost:8000/docs") 
-    print("📊 Health Check:   http://localhost:8080/health")
-    print("📈 Metrics:        http://localhost:8080/metrics")
-    print("=" * 60)
-    print("💡 Press Ctrl+C to stop")
-    print()
-    
-    # Run the async server
-    asyncio.run(run_development_server())
+async def run_production_server(port: int):
+    """Run production server with unified backend + frontend."""
+    try:
+        # Import after environment is set
+        from api.fraud_api import FraudDetectionAPI
+        
+        logger.info("🏭 Starting production server...")
+        
+        # Initialize the API service
+        api_service = FraudDetectionAPI()
+        
+        # Start the server
+        import uvicorn
+        config = uvicorn.Config(
+            app=api_service.app,
+            host="0.0.0.0",
+            port=port,
+            log_level="info",
+            access_log=True,
+            reload=False,
+            workers=1
+        )
+        
+        server = uvicorn.Server(config)
+        
+        # Setup signal handlers for graceful shutdown
+        def signal_handler(sig, frame):
+            logger.info("🛑 Received shutdown signal, stopping server...")
+            server.should_exit = True
+        
+        signal.signal(signal.SIGINT, signal_handler)
+        signal.signal(signal.SIGTERM, signal_handler)
+        
+        logger.info(f"✅ Production server running on http://0.0.0.0:{port}")
+        logger.info(f"📱 Frontend: http://0.0.0.0:{port}/")
+        logger.info(f"🔌 API: http://0.0.0.0:{port}/api/v1")
+        logger.info(f"📖 Docs: http://0.0.0.0:{port}/docs")
+        logger.info(f"❤️  Health: http://0.0.0.0:{port}/health")
+        
+        await server.serve()
+        
+    except Exception as e:
+        logger.error(f"❌ Error starting production server: {str(e)}")
+        raise
+
+async def run_development_servers():
+    """Run development mode with separate backend and frontend."""
+    try:
+        logger.info("🛠️  Starting development servers...")
+        
+        # Start main orchestrator system
+        from main import main as start_orchestrator
+        
+        # Run in background
+        orchestrator_task = asyncio.create_task(start_orchestrator())
+        
+        logger.info("✅ Development servers started")
+        logger.info("🔌 Backend API: http://localhost:8001")
+        logger.info("❤️  Health Check: http://localhost:8080") 
+        logger.info("📱 Frontend: Start separately with 'cd frontend && npm run dev'")
+        
+        # Keep running
+        await orchestrator_task
+        
+    except Exception as e:
+        logger.error(f"❌ Error starting development servers: {str(e)}")
+        raise
 
 if __name__ == "__main__":
-    main()
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        logger.info("🛑 Application stopped by user")
+    except Exception as e:
+        logger.error(f"❌ Application failed: {str(e)}")
+        exit(1)

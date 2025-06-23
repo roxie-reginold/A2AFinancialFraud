@@ -1,0 +1,65 @@
+# Custom Cloud Build configuration for enhanced deployment
+steps:
+  # Build the unified container image
+  - name: 'gcr.io/cloud-builders/docker'
+    args: [
+      'build',
+      '-t', 'us-central1-docker.pkg.dev/fraud-detection-adkhackathon/fraud-detection-repo/fraud-detection:20250622-211625',
+      '-t', 'us-central1-docker.pkg.dev/fraud-detection-adkhackathon/fraud-detection-repo/fraud-detection:latest',
+      '--build-arg', 'BUILD_ID=20250622-211625',
+      '--build-arg', 'PROJECT_ID=fraud-detection-adkhackathon',
+      '.'
+    ]
+    timeout: '1800s'
+
+  # Push the container image to Artifact Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'us-central1-docker.pkg.dev/fraud-detection-adkhackathon/fraud-detection-repo/fraud-detection:20250622-211625']
+
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'us-central1-docker.pkg.dev/fraud-detection-adkhackathon/fraud-detection-repo/fraud-detection:latest']
+
+  # Deploy to Cloud Run with enhanced configuration
+  - name: 'gcr.io/cloud-builders/gcloud'
+    args: [
+      'run', 'deploy', 'fraud-detection-v2',
+      '--image', 'us-central1-docker.pkg.dev/fraud-detection-adkhackathon/fraud-detection-repo/fraud-detection:20250622-211625',
+      '--region', 'us-central1',
+      '--platform', 'managed',
+      '--allow-unauthenticated',
+      '--port', '8080',
+      '--memory', '4Gi',
+      '--cpu', '2',
+      '--max-instances', '20',
+      '--min-instances', '1',
+      '--timeout', '900',
+      '--concurrency', '100',
+      '--execution-environment', 'gen2',
+      '--set-env-vars', 'ENVIRONMENT=production,GOOGLE_CLOUD_PROJECT=fraud-detection-adkhackathon,BUILD_ID=20250622-211625',
+      '--set-labels', 'app=fraud-detection,version=v2,deployment=cloud-build'
+    ]
+
+  # Verify deployment
+  - name: 'gcr.io/cloud-builders/curl'
+    args: [
+      'sh', '-c',
+      'sleep 30 && curl -f $(gcloud run services describe fraud-detection-v2 --region=us-central1 --format="value(status.url)")/health || exit 1'
+    ]
+
+images:
+  - 'us-central1-docker.pkg.dev/fraud-detection-adkhackathon/fraud-detection-repo/fraud-detection:20250622-211625'
+  - 'us-central1-docker.pkg.dev/fraud-detection-adkhackathon/fraud-detection-repo/fraud-detection:latest'
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+  machineType: 'E2_HIGHCPU_8'
+  diskSizeGb: 100
+
+timeout: '3600s'
+
+substitutions:
+  _SERVICE_NAME: 'fraud-detection-v2'
+  _REGION: 'us-central1'
+  _BUILD_ID: '20250622-211625'
+
+tags: ['fraud-detection', 'production', 'unified-stack']
