@@ -1,0 +1,58 @@
+# ADK Financial Fraud Detection System Dependencies
+
+# Core Google ADK and AI Platform Dependencies
+google-adk
+google-genai
+google-cloud-aiplatform>=1.34.0
+google-cloud-pubsub>=2.18.0
+google-cloud-bigquery>=3.11.0
+google-cloud-core
+google-cloud-storage
+google-auth
+google-auth-oauthlib
+google-auth-httplib2
+vertexai
+
+# LiteLLM for multi-model support
+litellm
+
+# Machine Learning and Data Science Libraries
+# tensorflow>=2.13.0  # Not compatible with Python 3.13 yet
+# keras
+numpy>=1.21.0
+pandas>=1.5.0
+matplotlib
+seaborn
+scikit-learn
+scipy
+
+# Configuration and Environment Management
+python-dotenv
+pyyaml
+
+# Async and Type Support
+typing-extensions
+
+# Data Processing and Utilities
+tqdm
+requests
+
+# Testing and Development Tools
+pytest
+pytest-asyncio
+
+# Enhanced Logging
+colorlog
+
+# FastAPI Production Infrastructure
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+pydantic>=2.5.0
+psutil
+
+# Data Visualization (Optional)
+plotly
+
+# Jupyter Notebook Support (Optional)
+jupyter
+ipython

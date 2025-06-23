@@ -1,0 +1,45 @@
+# Cloud Build configuration for ADK Financial Fraud Detection System
+steps:
+  # Build the container image
+  - name: 'gcr.io/cloud-builders/docker'
+    args: [
+      'build', 
+      '-t', 'gcr.io/$PROJECT_ID/fraud-detection:$BUILD_ID',
+      '-t', 'gcr.io/$PROJECT_ID/fraud-detection:latest',
+      '.'
+    ]
+
+  # Push the container image to Container Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/$PROJECT_ID/fraud-detection:$BUILD_ID']
+
+  - name: 'gcr.io/cloud-builders/docker'
+    args: ['push', 'gcr.io/$PROJECT_ID/fraud-detection:latest']
+
+  # Deploy to Cloud Run
+  - name: 'gcr.io/cloud-builders/gcloud'
+    args: [
+      'run', 'deploy', 'fraud-detection',
+      '--image', 'gcr.io/$PROJECT_ID/fraud-detection:$BUILD_ID',
+      '--region', 'us-central1',
+      '--platform', 'managed',
+      '--allow-unauthenticated',
+      '--port', '8080',
+      '--memory', '2Gi',
+      '--cpu', '2',
+      '--max-instances', '10',
+      '--min-instances', '0',
+      '--timeout', '300',
+      '--concurrency', '80',
+      '--set-env-vars', 'ENVIRONMENT=production,GOOGLE_CLOUD_PROJECT=$PROJECT_ID'
+    ]
+
+images:
+  - 'gcr.io/$PROJECT_ID/fraud-detection:$BUILD_ID'
+  - 'gcr.io/$PROJECT_ID/fraud-detection:latest'
+
+options:
+  logging: CLOUD_LOGGING_ONLY
+  machineType: 'E2_HIGHCPU_8'
+
+timeout: '1200s'
