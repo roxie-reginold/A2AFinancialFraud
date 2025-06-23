@@ -129,12 +129,12 @@ class FraudDetectionAPI:
     def _setup_middleware(self):
         """Configure production middleware."""
         
-        # CORS middleware
+        # CORS middleware - allow all origins for now
         self.app.add_middleware(
             CORSMiddleware,
-            allow_origins=["*"] if settings.ENVIRONMENT == "development" else ["https://your-domain.com"],
+            allow_origins=["*"],  # Allow all origins for testing
             allow_credentials=True,
-            allow_methods=["GET", "POST", "PUT", "DELETE"],
+            allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
             allow_headers=["*"],
         )
         
@@ -158,12 +158,14 @@ class FraudDetectionAPI:
         # Root health check for Cloud Run
         @self.app.get("/", include_in_schema=False)
         async def root():
-            return {"status": "ok", "service": "fraud-detection-backend"}
+            logger.info("🏠 Root endpoint accessed")
+            return {"status": "ok", "service": "fraud-detection-backend", "timestamp": datetime.utcnow().isoformat()}
             
         # Simple health check
         @self.app.get("/health", include_in_schema=False)
         async def health_check():
-            return {"status": "healthy"}
+            logger.info("❤️ Health check accessed")
+            return {"status": "healthy", "timestamp": datetime.utcnow().isoformat()}
             
         # API endpoints
         @self.app.post(
@@ -174,13 +176,13 @@ class FraudDetectionAPI:
         )
         async def analyze_transaction(
             transaction: TransactionInput,
-            background_tasks: BackgroundTasks,
-            credentials: HTTPAuthorizationCredentials = Depends(security)
+            background_tasks: BackgroundTasks
         ):
             """Analyze a single transaction for fraud."""
             try:
-                # Validate authentication (implement your auth logic)
-                await self._validate_auth(credentials)
+                logger.info(f"🔍 Analyzing transaction: {transaction.transaction_id}")
+                # Skip authentication for testing
+                # await self._validate_auth(credentials)
                 
                 # Process transaction through fraud detection
                 result = await self._process_transaction(transaction)
@@ -211,13 +213,13 @@ class FraudDetectionAPI:
         )
         async def analyze_bulk_transactions(
             bulk_input: BulkTransactionInput,
-            background_tasks: BackgroundTasks,
-            credentials: HTTPAuthorizationCredentials = Depends(security)
+            background_tasks: BackgroundTasks
         ):
             """Analyze multiple transactions in batch."""
             try:
-                # Validate authentication
-                await self._validate_auth(credentials)
+                logger.info(f"📊 Bulk analyzing {len(bulk_input.transactions)} transactions")
+                # Skip authentication for testing
+                # await self._validate_auth(credentials)
                 
                 # Process transactions
                 batch_id = f"batch_{datetime.utcnow().strftime('%Y%m%d_%H%M%S')}"
