@@ -1,13 +1,74 @@
 # ADK Financial Fraud Detection System - Backend Only
 # Python FastAPI + Fraud Detection Agents
 
-FROM python:3.11-slim
+# Use multi-stage build to reduce final image size
+FROM python:3.11-slim as builder
+
+# Set build arguments
+ARG COMMIT_SHA=unknown
+
+# Set environment variables for the build stage
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+# Install build dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create and set working directory
+WORKDIR /app
+
+# Copy only requirements first to leverage Docker cache
+COPY requirements.txt .
+
+# Install dependencies
+RUN pip install --user -r requirements.txt
+
+# Second stage - runtime
+FROM python:3.11-slim as runtime
+
+# Set build arguments
+ARG COMMIT_SHA=unknown
+
+# Set environment variables for Cloud Run
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONPATH=/app \
+    PORT=8080 \
+    HOST=0.0.0.0 \
+    WORKERS=2 \
+    TIMEOUT=120 \
+    RELOAD=False \
+    ENVIRONMENT=production \
+    COMMIT_SHA=${COMMIT_SHA}
+
+# Install runtime dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create app directory and set working directory
+WORKDIR /app
+
+# Copy Python dependencies from builder
+COPY --from=builder /root/.local /root/.local
+
+# Ensure scripts in .local are usable
+ENV PATH="/root/.local/bin:${PATH}"
 
 # Set environment variables for Cloud Run
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONPATH=/app
 ENV PORT=8080
+ENV HOST=0.0.0.0
+ENV WORKERS=2
+ENV TIMEOUT=120
+ENV RELOAD=False
+ENV ENVIRONMENT=production
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
@@ -15,8 +76,11 @@ RUN apt-get update && apt-get install -y \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
-# Create app directory
+# Create app directory and set working directory
 WORKDIR /app
+
+# Install curl for health checks
+RUN apt-get update && apt-get install -y curl && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements first for better caching
 COPY requirements.txt .
@@ -34,7 +98,6 @@ COPY models/ ./models/
 COPY scripts/ ./scripts/
 COPY main.py .
 COPY run_dev.py .
-COPY spec.md .
 
 # Create necessary directories
 RUN mkdir -p /app/logs /app/data/temp
@@ -46,5 +109,18 @@ EXPOSE $PORT
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD curl -f http://localhost:$PORT/health || exit 1
 
-# Use API service directly for backend
-CMD ["python", "-c", "import asyncio; from api.fraud_api import FraudDetectionAPI; import uvicorn; import os; api = FraudDetectionAPI(); uvicorn.run(api.app, host='0.0.0.0', port=int(os.getenv('PORT', 8080)))"]
+# Use gunicorn with uvicorn workers for production
+CMD exec gunicorn --bind :$PORT \
+    --workers $WORKERS \
+    --worker-class uvicorn.workers.UvicornWorker \
+    --timeout $TIMEOUT \
+    --keep-alive 5 \
+    --max-requests 1000 \
+    --max-requests-jitter 50 \
+    --log-level info \
+    --access-logfile - \
+    --error-logfile - \
+    --worker-tmp-dir /dev/shm \
+    --preload \
+    --reload=$RELOAD \
+    api.fraud_api:app

@@ -161,6 +161,16 @@ class HealthCheckService:
     def _setup_routes(self):
         """Setup API routes."""
         
+        # Root health check for Cloud Run
+        @self.app.get("/", include_in_schema=False)
+        async def root():
+            return {"status": "ok", "service": "fraud-detection-backend"}
+            
+        # Simple health check
+        @self.app.get("/health", include_in_schema=False)
+        async def health():
+            return {"status": "healthy"}
+            
         @self.app.get(
             "/health",
             response_model=HealthStatus,
