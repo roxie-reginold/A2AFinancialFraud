@@ -19,6 +19,6 @@
   "devCommand": "cd frontend && npm run dev",
   "installCommand": "cd frontend && npm install",
   "env": {
-    "VITE_API_URL": "https://YOUR_RENDER_BACKEND_URL/api/v1"
+    "VITE_API_URL": "https://a2afinancialfraud.onrender.com/api/v1"
   }
 }
